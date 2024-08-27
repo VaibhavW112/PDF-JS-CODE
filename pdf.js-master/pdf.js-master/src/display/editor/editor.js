@@ -465,10 +465,23 @@ class AnnotationEditor {
   }
 
   drag(tx, ty) {
+    //  console.log("In drag");
     this.#initialPosition ||= [this.x, this.y];
     const [parentWidth, parentHeight] = this.parentDimensions;
     this.x += tx / parentWidth;
     this.y += ty / parentHeight;
+
+    // console.log("tx");
+    // console.log(tx);
+
+    // console.log("ty");
+    // console.log(ty);
+
+    // console.log("this.x");
+    // console.log(this.x);
+
+    // console.log("this.y");
+    // console.log(this.y);
     if (this.parent && (this.x < 0 || this.x > 1 || this.y < 0 || this.y > 1)) {
       // It's possible to not have a parent: for example, when the user is
       // dragging all the selected editors but this one on a page which has been
@@ -647,9 +660,7 @@ class AnnotationEditor {
       pageDimensions: [pageWidth, pageHeight],
     } = this;
     const scaledWidth = pageWidth * parentScale;
-    // console.log("scaledWidth==>" + scaledWidth);
     const scaledHeight = pageHeight * parentScale;
-    // console.log("scaledHeight==>" + scaledHeight);
     return FeatureTest.isCSSRoundSupported
       ? [Math.round(scaledWidth), Math.round(scaledHeight)]
       : [scaledWidth, scaledHeight];
@@ -746,6 +757,7 @@ class AnnotationEditor {
     this._isDraggable = false;
     const pointerMoveOptions = { passive: true, capture: true };
     this.parent.togglePointerEvents(false);
+
     window.addEventListener(
       "pointermove",
       boundResizerPointermove,
@@ -821,12 +833,33 @@ class AnnotationEditor {
     });
   }
 
+  updateArrowCoordinates(originalCoords, ratioX, ratioY, savedX, savedY) {
+    return originalCoords.map(point => {
+      const offsetX = point.moveToX - savedX;
+      const offsetY = point.moveToY - savedY;
+
+      return {
+        moveToX: savedX + offsetX * ratioX,
+        moveToY: savedY + offsetY * ratioY,
+        x: savedX + (point.x - savedX) * ratioX,
+        y: savedY + (point.y - savedY) * ratioY,
+        color: point.color,
+        thickness: point.thickness,
+      };
+    });
+  }
+
   #resizerPointermove(name, event) {
+    // console.log("In resizer pointer move");
     const [parentWidth, parentHeight] = this.parentDimensions;
     const savedX = this.x;
     const savedY = this.y;
     const savedWidth = this.width;
     const savedHeight = this.height;
+    // console.log("saved x ==>" + savedX);
+    // console.log("savedY ==>" + savedY);
+    // console.log("savedWidth ==>" + savedWidth);
+    // console.log("savedHeight ==>" + savedHeight);
     const minWidth = AnnotationEditor.MIN_SIZE / parentWidth;
     const minHeight = AnnotationEditor.MIN_SIZE / parentHeight;
 
@@ -891,7 +924,9 @@ class AnnotationEditor {
     }
 
     const point = getPoint(savedWidth, savedHeight);
+
     const oppositePoint = getOpposite(savedWidth, savedHeight);
+
     let transfOppositePoint = transf(...oppositePoint);
     const oppositeX = round(savedX + transfOppositePoint[0]);
     const oppositeY = round(savedY + transfOppositePoint[1]);
@@ -939,11 +974,20 @@ class AnnotationEditor {
     transfOppositePoint = transf(...getOpposite(newWidth, newHeight));
     const newX = oppositeX - transfOppositePoint[0];
     const newY = oppositeY - transfOppositePoint[1];
-
     this.width = newWidth;
     this.height = newHeight;
     this.x = newX;
     this.y = newY;
+
+    localStorage.setItem(
+      "newDimensions",
+      JSON.stringify({
+        width: this.width,
+        height: this.height,
+        x: this.x,
+        y: this.y,
+      })
+    );
 
     this.setDims(parentWidth * newWidth, parentHeight * newHeight);
     this.fixAndSetPosition();
@@ -1356,7 +1400,6 @@ class AnnotationEditor {
    * It's used on ctrl+backspace action.
    */
   remove() {
-    console.log("In super remove method");
     this.div.removeEventListener("focusin", this.#boundFocusin);
     this.div.removeEventListener("focusout", this.#boundFocusout);
 
@@ -1518,10 +1561,6 @@ class AnnotationEditor {
     if (!this.#isResizerEnabledForKeyboard) {
       return;
     }
-    this.#resizerPointermove(this.#focusedResizerName, {
-      movementX: x,
-      movementY: y,
-    });
   }
 
   #stopResizing() {

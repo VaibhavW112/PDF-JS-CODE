@@ -179,11 +179,20 @@ function getViewerConfiguration() {
   };
 }
 
+const applyArrowChanges = () => {
+  const storedPoints = JSON.parse(localStorage.getItem("arrowBox"));
+  console.log("Stored points ");
+  console.log(storedPoints);
+  if (storedPoints) {
+    const pageNumber = Number(
+      getViewerConfiguration().toolbar.pageNumber.value
+    );
+    drawArrowOnPage(pageNumber, storedPoints);
+  }
+};
+
 const applyLineChanges = () => {
-  console.log("In apply changes");
-  // const bezierPoints = localStorage.getItem("linePoints");
-  // const storedPoints = JSON.parse(bezierPoints);
-  const bezierPoints = localStorage.getItem("arrowBox");
+  const bezierPoints = localStorage.getItem("linePoints");
   const storedPoints = JSON.parse(bezierPoints);
   console.log(storedPoints);
   if (bezierPoints) {
@@ -247,7 +256,6 @@ const highlightSelectedArea = (pageNumber, coordinates) => {
       // context.stroke();
       context.globalAlpha = 0.5;
       context.fillStyle = "rgba(255, 0, 0, 0.3)"; // Default red color with 30% opacity
-      debugger;
       coordinates.forEach(coord => {
         const actualX = coord.x * viewport.width;
         const actualY = coord.y * viewport.height;
@@ -286,23 +294,18 @@ function drawLineOnPage(pageNumber, coordinates) {
       // Draw the line
       context.beginPath();
       coordinates.forEach((point, index) => {
-        debugger;
-        const { moveToX, moveToY, x, y, color, thiknes } = point;
+        const [x, y] = point;
         const actualX = x; // (x * viewport.width) / 1000;
         const actualY = y; // (y * viewport.height) / 1000;
 
-        // if (index === 0) {
-        context.lineWidth = thiknes;
-        context.strokeStyle = color;
-        context.lineCap = "round";
-        context.moveTo(moveToX, moveToY);
-        // } else {
-        context.lineTo(actualX, actualY);
-
-        // }
+        if (index === 0) {
+          context.moveTo(actualX, actualY);
+        } else {
+          context.lineTo(actualX, actualY);
+        }
       });
-      // context.strokeStyle = "black"; // Red color
-      // context.lineWidth = 2; // Set line width
+      context.strokeStyle = "black"; // Red color
+      context.lineWidth = 2; // Set line width
       context.stroke();
 
       const viewerElement = document.getElementsByClassName("page");
@@ -311,6 +314,80 @@ function drawLineOnPage(pageNumber, coordinates) {
     })
     .catch(error => {
       console.error("Error drawing line:", error);
+    });
+}
+
+function drawArrowOnPage(pageNumber, coordinates) {
+  const currentPage = PDFViewerApplication.pdfViewer.getPageView(
+    /* index = */ pageNumber - 1
+  );
+
+  PDFViewerApplication.pdfDocument
+    .getPage(pageNumber)
+    .then(page => {
+      const viewport = page.getViewport({ scale: currentPage.viewport.scale });
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      canvas.style.position = "absolute";
+      canvas.style.top = "0";
+      canvas.style.left = "0";
+      canvas.style.pointerEvents = "none";
+
+      const storedDimensions = JSON.parse(
+        localStorage.getItem("newDimensions")
+      );
+
+      let {
+        width: newWidth,
+        height: newHeight,
+        x: newX,
+        y: newY,
+      } = storedDimensions;
+
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+
+      context.beginPath();
+      coordinates.forEach(point => {
+        const { moveToX, moveToY, x, y, color, thickness } = point;
+
+        minX = Math.min(minX, moveToX, x);
+        minY = Math.min(minY, moveToY, y);
+        maxX = Math.max(maxX, moveToX, x);
+        maxY = Math.max(maxY, moveToY, y);
+
+        const widthScale = newWidth / (maxX - minX);
+        const heightScale = newHeight / (maxY - minY);
+
+        const adjustedMoveToX =
+          (newX + (moveToX - minX) * widthScale) * viewport.width;
+        const adjustedMoveToY =
+          (newY + (moveToY - minY) * heightScale) * viewport.height;
+        const adjustedX = (newX + (x - minX) * widthScale) * viewport.width;
+        const adjustedY = (newY + (y - minY) * heightScale) * viewport.height;
+
+        context.lineWidth = thickness;
+        context.strokeStyle = color;
+        context.lineCap = "round";
+
+        context.moveTo(adjustedMoveToX, adjustedMoveToY);
+        context.lineTo(adjustedX, adjustedY);
+      });
+
+      context.stroke();
+
+      const viewerElement = document.getElementsByClassName("page");
+      viewerElement[pageNumber - 1].prepend(canvas);
+      console.log("All arrows with adjusted rectangle drawn successfully.");
+    })
+    .catch(error => {
+      console.error("Error drawing arrows:", error);
     });
 }
 
@@ -381,7 +458,7 @@ function webViewerLoad() {
   PDFViewerApplication.run(config);
   document
     .getElementById("linebutton")
-    .addEventListener("click", applyLineChanges);
+    .addEventListener("click", applyArrowChanges);
   document
     .getElementById("highlightbutton")
     .addEventListener("click", highlightText);

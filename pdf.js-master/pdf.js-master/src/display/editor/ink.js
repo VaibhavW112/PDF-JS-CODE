@@ -55,13 +55,29 @@ class InkEditor extends AnnotationEditor {
 
   #realHeight = 0;
 
+  #arrowTopY = 0;
+
+  #arrowBottomY = 0;
+
+  #arrowMaxWidth = 0;
+
+  #arrowMinWidth = 0;
+
+  #lineDelta = [];
+
+  #originalCoords = [];
+
+  #arrowXPosition = 0;
+
+  #arrowYPosition = 0;
+
   #requestFrameCallback = null;
 
-  static _defaultColor = null;
+  static _defaultColor = "#f40b0b";
 
   static _defaultOpacity = 1;
 
-  static _defaultThickness = 1;
+  static _defaultThickness = 2;
 
   static _type = "ink";
 
@@ -105,6 +121,8 @@ class InkEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   updateParams(type, value) {
+    // console.log("In update params");
+    // console.log(type);
     switch (type) {
       case AnnotationEditorParamsType.INK_THICKNESS:
         this.#updateThickness(value);
@@ -158,6 +176,19 @@ class InkEditor extends AnnotationEditor {
    * @param {number} thickness
    */
   #updateThickness(thickness) {
+    let arrowDelta = localStorage.getItem("arrowBox");
+    let newArrowDelta = [];
+
+    arrowDelta = JSON.parse(arrowDelta);
+    if (arrowDelta) {
+      arrowDelta.forEach(line => {
+        line.thickness = thickness;
+        newArrowDelta.push(line);
+      });
+    }
+
+    localStorage.setItem("arrowBox", JSON.stringify(newArrowDelta));
+
     const setThickness = th => {
       this.thickness = th;
       this.#fitToContent();
@@ -362,10 +393,10 @@ class InkEditor extends AnnotationEditor {
    * @param {number} x
    * @param {number} y
    */
+
   #startDrawing(x, y) {
     this.canvas.addEventListener("contextmenu", noContextMenu);
     this.canvas.addEventListener("pointerleave", this.#boundCanvasPointerleave);
-    this.canvas.addEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.addEventListener("pointerup", this.#boundCanvasPointerup);
     this.canvas.removeEventListener(
       "pointerdown",
@@ -400,7 +431,6 @@ class InkEditor extends AnnotationEditor {
    * @param {number} y
    */
   #draw(x, y) {
-    // debugger;
     const [lastX, lastY] = this.currentPath.at(-1);
     if (this.currentPath.length > 1 && x === lastX && y === lastY) {
       return;
@@ -413,6 +443,16 @@ class InkEditor extends AnnotationEditor {
     if (currentPath.length <= 2) {
       path2D.moveTo(...currentPath[0]);
       path2D.lineTo(x, y);
+
+      this.#lineDelta.push({
+        moveToX: currentPath[0][0],
+        moveToY: currentPath[0][1],
+        x: x,
+        y: y,
+        color: this.color,
+        thickness: this.thickness * this.parentScale,
+      });
+      this.#drawArrowhead(path2D, ...currentPath[0], x, y);
       return;
     }
 
@@ -428,6 +468,73 @@ class InkEditor extends AnnotationEditor {
       x,
       y
     );
+  }
+
+  /**
+   * Draw an arrowhead at the end of the line.
+   * @param {Path2D} path2D - The path to draw on.
+   * @param {number} fromX - The x-coordinate of the starting point.
+   * @param {number} fromY - The y-coordinate of the starting point.
+   * @param {number} toX - The x-coordinate of the ending point.
+   * @param {number} toY - The y-coordinate of the ending point.
+   */
+  #drawArrowhead(path2D, fromX, fromY, toX, toY) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    // Calculate the length of the line
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const headLength = length * 0.2; // Length of the arrowhead
+    const angle = Math.atan2(dy, dx);
+
+    // Draw the arrowhead
+    path2D.moveTo(toX, toY);
+
+    path2D.lineTo(
+      toX - headLength * Math.cos(angle - Math.PI / 6),
+      toY - headLength * Math.sin(angle - Math.PI / 6)
+    );
+
+    path2D.moveTo(toX, toY);
+    path2D.lineTo(
+      toX - headLength * Math.cos(angle + Math.PI / 6),
+      toY - headLength * Math.sin(angle + Math.PI / 6)
+    );
+
+    this.#lineDelta.push({
+      moveToX: toX,
+      moveToY: toY,
+      x: toX - headLength * Math.cos(angle + Math.PI / 6),
+      y: toY - headLength * Math.sin(angle + Math.PI / 6),
+      color: this.color,
+      thickness: this.thickness * this.parentScale,
+    });
+
+    const [parentWidth, parentHeight] = this.parentDimensions;
+    const padding = this.#getPadding();
+    this.#arrowXPosition = (fromX - padding) / parentWidth;
+    this.#arrowYPosition = (toY - padding) / parentHeight;
+
+    this.#lineDelta.push({
+      moveToX: toX,
+      moveToY: toY,
+      x: toX - headLength * Math.cos(angle - Math.PI / 6),
+      y: toY - headLength * Math.sin(angle - Math.PI / 6),
+      color: this.color,
+      thickness: this.thickness * this.parentScale,
+    });
+
+    localStorage.setItem("arrowBox", JSON.stringify(this.#lineDelta));
+
+    const x1 = toX - headLength * Math.cos(angle - Math.PI / 6);
+    const y1 = toY - headLength * Math.sin(angle - Math.PI / 6);
+
+    const x2 = toX - headLength * Math.cos(angle + Math.PI / 6);
+    const y2 = toY - headLength * Math.sin(angle + Math.PI / 6);
+
+    this.#arrowBottomY = y1;
+    this.#arrowTopY = y2;
+    this.#arrowMinWidth = x1;
+    this.#arrowMaxWidth = x2;
   }
 
   #endPath() {
@@ -550,7 +657,6 @@ class InkEditor extends AnnotationEditor {
     if (path.length <= 2) {
       return [[path[0], path[0], path.at(-1), path.at(-1)]];
     }
-
     const bezierPoints = [];
     const newBezierPoints = [];
     let i;
@@ -560,26 +666,20 @@ class InkEditor extends AnnotationEditor {
       const [x2, y2] = path[i + 1];
       const x3 = (x1 + x2) / 2;
       const y3 = (y1 + y2) / 2;
-
       // The quadratic is: [[x0, y0], [x1, y1], [x3, y3]].
       // Convert the quadratic to a cubic
       // (see https://fontforge.org/docs/techref/bezier.html#converting-truetype-to-postscript)
       const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
       const control2 = [x3 + (2 * (x1 - x3)) / 3, y3 + (2 * (y1 - y3)) / 3];
-
       bezierPoints.push([[x0, y0], control1, control2, [x3, y3]]);
       newBezierPoints.push([x0, y0], control1, control2, [x3, y3]);
-
       [x0, y0] = [x3, y3];
     }
-
     const [x1, y1] = path[i];
     const [x2, y2] = path[i + 1];
-
     // The quadratic is: [[x0, y0], [x1, y1], [x2, y2]].
     const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
     const control2 = [x2 + (2 * (x1 - x2)) / 3, y2 + (2 * (y1 - y2)) / 3];
-
     bezierPoints.push([[x0, y0], control1, control2, [x2, y2]]);
     newBezierPoints.push([x0, y0], control1, control2, [x2, y2]);
     localStorage.setItem("linePoints", JSON.stringify(newBezierPoints));
@@ -678,7 +778,7 @@ class InkEditor extends AnnotationEditor {
    */
   canvasPointermove(event) {
     event.preventDefault();
-    this.#draw(event.offsetX, event.offsetY);
+    //this.#draw(event.offsetX, event.offsetY);
   }
 
   /**
@@ -731,6 +831,10 @@ class InkEditor extends AnnotationEditor {
     // Since the ink editor covers all of the page and we want to be able
     // to select another editor, we just put this one in the background.
     this.setInBackground();
+    //TODO Added for testing purpose
+    if (!this.isEmpty()) {
+      this.commit();
+    }
   }
 
   /**
@@ -750,6 +854,7 @@ class InkEditor extends AnnotationEditor {
    * Create the resize observer.
    */
   #createObserver() {
+    console.log("In createObserver");
     this.#observer = new ResizeObserver(entries => {
       const rect = entries[0].contentRect;
       if (rect.width && rect.height) {
@@ -846,8 +951,8 @@ class InkEditor extends AnnotationEditor {
     const [parentWidth, parentHeight] = this.parentDimensions;
     this.width = width / parentWidth;
     this.height = height / parentHeight;
-    this.fixAndSetPosition();
 
+    this.fixAndSetPosition();
     if (this.#disableEditing) {
       this.#setScaleFactor(width, height);
     }
@@ -1058,7 +1163,13 @@ class InkEditor extends AnnotationEditor {
       }
     }
 
-    return [xMin, yMin, xMax, yMax];
+    const topY = Math.min(this.#arrowTopY, yMin, this.#arrowBottomY, yMax);
+    const bottomY = Math.max(this.#arrowTopY, yMin, this.#arrowBottomY, yMax);
+
+    const minX = Math.min(this.#arrowMinWidth, xMin, this.#arrowMaxWidth, xMax);
+    const maxX = Math.max(this.#arrowMinWidth, xMin, this.#arrowMaxWidth, xMax);
+
+    return [minX, topY, maxX, bottomY];
   }
 
   /**
@@ -1113,6 +1224,16 @@ class InkEditor extends AnnotationEditor {
 
     this.#realWidth = width;
     this.#realHeight = height;
+
+    // localStorage.setItem(
+    //   "newDimensions",
+    //   JSON.stringify({
+    //     width: this.width,
+    //     height: this.height,
+    //     x: this.#arrowXPosition,
+    //     y: this.#arrowYPosition,
+    //   })
+    // );
 
     this.setDims(width, height);
     const unscaledPadding = firstTime ? padding / this.scaleFactor / 2 : 0;
