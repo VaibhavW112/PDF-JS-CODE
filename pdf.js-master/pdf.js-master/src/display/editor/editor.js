@@ -989,6 +989,8 @@ class AnnotationEditor {
       })
     );
 
+    localStorage.setItem("isResized", JSON.parse(true));
+
     this.setDims(parentWidth * newWidth, parentHeight * newHeight);
     this.fixAndSetPosition();
   }

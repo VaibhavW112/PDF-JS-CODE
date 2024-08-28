@@ -63,13 +63,11 @@ class InkEditor extends AnnotationEditor {
 
   #arrowMinWidth = 0;
 
-  #lineDelta = [];
+  #arrowDelta = [];
 
-  #originalCoords = [];
+  // #arrowXPosition = 0;
 
-  #arrowXPosition = 0;
-
-  #arrowYPosition = 0;
+  // #arrowYPosition = 0;
 
   #requestFrameCallback = null;
 
@@ -171,24 +169,24 @@ class InkEditor extends AnnotationEditor {
     ];
   }
 
+  #updateStoredArrowThickness(thickness) {
+    let arrowDelta = JSON.parse(localStorage.getItem("arrowDelta"));
+    if (arrowDelta) {
+      arrowDelta.forEach(line => {
+        line.thickness = thickness;
+        arrowDelta.push(line);
+      });
+    }
+
+    localStorage.setItem("arrowDelta", JSON.stringify(arrowDelta));
+  }
+
   /**
    * Update the thickness and make this action undoable.
    * @param {number} thickness
    */
   #updateThickness(thickness) {
-    let arrowDelta = localStorage.getItem("arrowBox");
-    let newArrowDelta = [];
-
-    arrowDelta = JSON.parse(arrowDelta);
-    if (arrowDelta) {
-      arrowDelta.forEach(line => {
-        line.thickness = thickness;
-        newArrowDelta.push(line);
-      });
-    }
-
-    localStorage.setItem("arrowBox", JSON.stringify(newArrowDelta));
-
+    this.#updateStoredArrowThickness(thickness);
     const setThickness = th => {
       this.thickness = th;
       this.#fitToContent();
@@ -205,11 +203,24 @@ class InkEditor extends AnnotationEditor {
     });
   }
 
+  #updateStoredArrowColor(color) {
+    let arrowDelta = JSON.parse(localStorage.getItem("arrowDelta"));
+    if (arrowDelta) {
+      arrowDelta.forEach(line => {
+        line.color = color;
+        arrowDelta.push(line);
+      });
+    }
+
+    localStorage.setItem("arrowDelta", JSON.stringify(arrowDelta));
+  }
+
   /**
    * Update the color and make this action undoable.
    * @param {string} color
    */
   #updateColor(color) {
+    this.#updateStoredArrowColor(color);
     const setColor = col => {
       this.color = col;
       this.#redraw();
@@ -412,6 +423,7 @@ class InkEditor extends AnnotationEditor {
         InkEditor._defaultColor || AnnotationEditor._defaultLineColor;
       this.opacity ??= InkEditor._defaultOpacity;
     }
+    // debugger;
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
     this.#setStroke();
@@ -444,7 +456,7 @@ class InkEditor extends AnnotationEditor {
       path2D.moveTo(...currentPath[0]);
       path2D.lineTo(x, y);
 
-      this.#lineDelta.push({
+      this.#arrowDelta.push({
         moveToX: currentPath[0][0],
         moveToY: currentPath[0][1],
         x: x,
@@ -461,13 +473,15 @@ class InkEditor extends AnnotationEditor {
       path2D.moveTo(...currentPath[0]);
     }
 
-    this.#makeBezierCurve(
-      path2D,
-      ...currentPath.at(-3),
-      ...currentPath.at(-2),
-      x,
-      y
-    );
+    //We don't need curve so this code is commented
+
+    // this.#makeBezierCurve(
+    //   path2D,
+    //   ...currentPath.at(-3),
+    //   ...currentPath.at(-2),
+    //   x,
+    //   y
+    // );
   }
 
   /**
@@ -500,7 +514,7 @@ class InkEditor extends AnnotationEditor {
       toY - headLength * Math.sin(angle + Math.PI / 6)
     );
 
-    this.#lineDelta.push({
+    this.#arrowDelta.push({
       moveToX: toX,
       moveToY: toY,
       x: toX - headLength * Math.cos(angle + Math.PI / 6),
@@ -511,10 +525,11 @@ class InkEditor extends AnnotationEditor {
 
     const [parentWidth, parentHeight] = this.parentDimensions;
     const padding = this.#getPadding();
-    this.#arrowXPosition = (fromX - padding) / parentWidth;
-    this.#arrowYPosition = (toY - padding) / parentHeight;
+    //TODO Revisit this code
+    //this.#arrowXPosition = (fromX - padding) / parentWidth;
+    //this.#arrowYPosition = (toY - padding) / parentHeight;
 
-    this.#lineDelta.push({
+    this.#arrowDelta.push({
       moveToX: toX,
       moveToY: toY,
       x: toX - headLength * Math.cos(angle - Math.PI / 6),
@@ -523,7 +538,7 @@ class InkEditor extends AnnotationEditor {
       thickness: this.thickness * this.parentScale,
     });
 
-    localStorage.setItem("arrowBox", JSON.stringify(this.#lineDelta));
+    localStorage.setItem("arrowDelta", JSON.stringify(this.#arrowDelta));
 
     const x1 = toX - headLength * Math.cos(angle - Math.PI / 6);
     const y1 = toY - headLength * Math.sin(angle - Math.PI / 6);
@@ -535,6 +550,22 @@ class InkEditor extends AnnotationEditor {
     this.#arrowTopY = y2;
     this.#arrowMinWidth = x1;
     this.#arrowMaxWidth = x2;
+
+    //TODO
+    //Modify this code
+    localStorage.setItem("isResized", JSON.parse(false));
+
+    this.currentPath.push([toX, toY]);
+
+    let firstArrowLineToX = toX - headLength * Math.cos(angle + Math.PI / 6);
+    let firstArrowLineToY = toY - headLength * Math.sin(angle + Math.PI / 6);
+    this.currentPath.push([firstArrowLineToX, firstArrowLineToY]);
+
+    this.currentPath.push([toX, toY]);
+    let secondArrowLineToX = toX - headLength * Math.cos(angle - Math.PI / 6);
+    let secondArrowLineToY = toY - headLength * Math.sin(angle - Math.PI / 6);
+
+    this.currentPath.push([secondArrowLineToX, secondArrowLineToY]);
   }
 
   #endPath() {
@@ -542,7 +573,9 @@ class InkEditor extends AnnotationEditor {
       return;
     }
     const lastPoint = this.currentPath.at(-1);
-    this.#currentPath2D.lineTo(...lastPoint);
+    //TODO
+    //This code is commented temporarily
+    //this.#currentPath2D.lineTo(...lastPoint);
   }
 
   /**
@@ -652,39 +685,64 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
+  // #generateBezierPoints() {
+  //   const path = this.currentPath;
+  //   if (path.length <= 2) {
+  //     return [[path[0], path[0], path.at(-1), path.at(-1)]];
+  //   }
+  //   const bezierPoints = [];
+  //   const newBezierPoints = [];
+  //   let i;
+  //   let [x0, y0] = path[0];
+  //   for (i = 1; i < path.length - 2; i++) {
+  //     const [x1, y1] = path[i];
+  //     const [x2, y2] = path[i + 1];
+  //     const x3 = (x1 + x2) / 2;
+  //     const y3 = (y1 + y2) / 2;
+  //     // The quadratic is: [[x0, y0], [x1, y1], [x3, y3]].
+  //     // Convert the quadratic to a cubic
+  //     // (see https://fontforge.org/docs/techref/bezier.html#converting-truetype-to-postscript)
+  //     const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
+  //     const control2 = [x3 + (2 * (x1 - x3)) / 3, y3 + (2 * (y1 - y3)) / 3];
+  //     bezierPoints.push([[x0, y0], control1, control2, [x3, y3]]);
+  //     newBezierPoints.push([x0, y0], control1, control2, [x3, y3]);
+  //     [x0, y0] = [x3, y3];
+  //   }
+  //   const [x1, y1] = path[i];
+  //   const [x2, y2] = path[i + 1];
+  //   // The quadratic is: [[x0, y0], [x1, y1], [x2, y2]].
+  //   const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
+  //   const control2 = [x2 + (2 * (x1 - x2)) / 3, y2 + (2 * (y1 - y2)) / 3];
+  //   bezierPoints.push([[x0, y0], control1, control2, [x2, y2]]);
+  //   newBezierPoints.push([x0, y0], control1, control2, [x2, y2]);
+  //   localStorage.setItem("linePoints", JSON.stringify(newBezierPoints));
+  //   console.log(newBezierPoints);
+  //   return bezierPoints;
+  // }
+
   #generateBezierPoints() {
     const path = this.currentPath;
-    if (path.length <= 2) {
-      return [[path[0], path[0], path.at(-1), path.at(-1)]];
+    if (path.length <= 1) {
+      return [];
     }
-    const bezierPoints = [];
-    const newBezierPoints = [];
-    let i;
-    let [x0, y0] = path[0];
-    for (i = 1; i < path.length - 2; i++) {
-      const [x1, y1] = path[i];
-      const [x2, y2] = path[i + 1];
-      const x3 = (x1 + x2) / 2;
-      const y3 = (y1 + y2) / 2;
-      // The quadratic is: [[x0, y0], [x1, y1], [x3, y3]].
-      // Convert the quadratic to a cubic
-      // (see https://fontforge.org/docs/techref/bezier.html#converting-truetype-to-postscript)
-      const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
-      const control2 = [x3 + (2 * (x1 - x3)) / 3, y3 + (2 * (y1 - y3)) / 3];
-      bezierPoints.push([[x0, y0], control1, control2, [x3, y3]]);
-      newBezierPoints.push([x0, y0], control1, control2, [x3, y3]);
-      [x0, y0] = [x3, y3];
+
+    const straightLinePoints = [];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const [x0, y0] = path[i];
+      const [x1, y1] = path[i + 1];
+      // Represent the straight line as a Bézier curve where all control points are on the line.
+      straightLinePoints.push([
+        [x0, y0],
+        [x0, y0],
+        [x1, y1],
+        [x1, y1],
+      ]);
     }
-    const [x1, y1] = path[i];
-    const [x2, y2] = path[i + 1];
-    // The quadratic is: [[x0, y0], [x1, y1], [x2, y2]].
-    const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
-    const control2 = [x2 + (2 * (x1 - x2)) / 3, y2 + (2 * (y1 - y2)) / 3];
-    bezierPoints.push([[x0, y0], control1, control2, [x2, y2]]);
-    newBezierPoints.push([x0, y0], control1, control2, [x2, y2]);
-    localStorage.setItem("linePoints", JSON.stringify(newBezierPoints));
-    console.log(newBezierPoints);
-    return bezierPoints;
+
+    localStorage.setItem("linePoints", JSON.stringify(straightLinePoints));
+    console.log(straightLinePoints);
+    return straightLinePoints;
   }
 
   /**
@@ -778,7 +836,7 @@ class InkEditor extends AnnotationEditor {
    */
   canvasPointermove(event) {
     event.preventDefault();
-    //this.#draw(event.offsetX, event.offsetY);
+    this.#draw(event.offsetX, event.offsetY);
   }
 
   /**
@@ -854,7 +912,6 @@ class InkEditor extends AnnotationEditor {
    * Create the resize observer.
    */
   #createObserver() {
-    console.log("In createObserver");
     this.#observer = new ResizeObserver(entries => {
       const rect = entries[0].contentRect;
       if (rect.width && rect.height) {
@@ -1224,7 +1281,8 @@ class InkEditor extends AnnotationEditor {
 
     this.#realWidth = width;
     this.#realHeight = height;
-
+    //TODO
+    //Revisit this code
     // localStorage.setItem(
     //   "newDimensions",
     //   JSON.stringify({

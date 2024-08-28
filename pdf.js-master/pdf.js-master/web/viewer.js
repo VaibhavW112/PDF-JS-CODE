@@ -180,9 +180,9 @@ function getViewerConfiguration() {
 }
 
 const applyArrowChanges = () => {
-  const storedPoints = JSON.parse(localStorage.getItem("arrowBox"));
-  console.log("Stored points ");
-  console.log(storedPoints);
+  const storedPoints = JSON.parse(localStorage.getItem("arrowDelta"));
+  // console.log("Stored points ");
+  // console.log(storedPoints);
   if (storedPoints) {
     const pageNumber = Number(
       getViewerConfiguration().toolbar.pageNumber.value
@@ -319,7 +319,7 @@ function drawLineOnPage(pageNumber, coordinates) {
 
 function drawArrowOnPage(pageNumber, coordinates) {
   const currentPage = PDFViewerApplication.pdfViewer.getPageView(
-    /* index = */ pageNumber - 1
+    pageNumber - 1
   );
 
   PDFViewerApplication.pdfDocument
@@ -340,6 +340,7 @@ function drawArrowOnPage(pageNumber, coordinates) {
       const storedDimensions = JSON.parse(
         localStorage.getItem("newDimensions")
       );
+      const isResized = JSON.parse(localStorage.getItem("isResized"));
 
       let {
         width: newWidth,
@@ -353,31 +354,42 @@ function drawArrowOnPage(pageNumber, coordinates) {
         maxX = -Infinity,
         maxY = -Infinity;
 
-      context.beginPath();
+      // Calculate the bounding box of the arrow
       coordinates.forEach(point => {
-        const { moveToX, moveToY, x, y, color, thickness } = point;
-
+        const { moveToX, moveToY, x, y } = point;
         minX = Math.min(minX, moveToX, x);
         minY = Math.min(minY, moveToY, y);
         maxX = Math.max(maxX, moveToX, x);
         maxY = Math.max(maxY, moveToY, y);
+      });
 
-        const widthScale = newWidth / (maxX - minX);
-        const heightScale = newHeight / (maxY - minY);
+      const originalWidth = maxX - minX;
+      const originalHeight = maxY - minY;
 
-        const adjustedMoveToX =
-          (newX + (moveToX - minX) * widthScale) * viewport.width;
-        const adjustedMoveToY =
-          (newY + (moveToY - minY) * heightScale) * viewport.height;
-        const adjustedX = (newX + (x - minX) * widthScale) * viewport.width;
-        const adjustedY = (newY + (y - minY) * heightScale) * viewport.height;
+      coordinates.forEach(point => {
+        const { moveToX, moveToY, x, y, color, thickness } = point;
 
         context.lineWidth = thickness;
         context.strokeStyle = color;
         context.lineCap = "round";
 
-        context.moveTo(adjustedMoveToX, adjustedMoveToY);
-        context.lineTo(adjustedX, adjustedY);
+        if (isResized) {
+          const widthScale = (newWidth * viewport.width) / originalWidth;
+          const heightScale = (newHeight * viewport.height) / originalHeight;
+
+          const adjustedMoveToX =
+            (moveToX - minX) * widthScale + newX * viewport.width;
+          const adjustedMoveToY =
+            (moveToY - minY) * heightScale + newY * viewport.height;
+          const adjustedX = (x - minX) * widthScale + newX * viewport.width;
+          const adjustedY = (y - minY) * heightScale + newY * viewport.height;
+
+          context.moveTo(adjustedMoveToX, adjustedMoveToY);
+          context.lineTo(adjustedX, adjustedY);
+        } else {
+          context.moveTo(moveToX, moveToY);
+          context.lineTo(x, y);
+        }
       });
 
       context.stroke();
