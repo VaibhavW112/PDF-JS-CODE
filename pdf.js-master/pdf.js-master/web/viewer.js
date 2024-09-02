@@ -63,6 +63,7 @@ function getViewerConfiguration() {
         "editorHighlightColorPicker"
       ),
       editorInkButton: document.getElementById("editorInk"),
+      editorArrowButton: document.getElementById("editorArrow"),
       editorInkParamsToolbar: document.getElementById("editorInkParamsToolbar"),
       editorStampButton: document.getElementById("editorStamp"),
       editorStampParamsToolbar: document.getElementById(
@@ -318,90 +319,91 @@ function drawLineOnPage(pageNumber, coordinates) {
 }
 
 function drawArrowOnPage(pageNumber, coordinates) {
-  const currentPage = PDFViewerApplication.pdfViewer.getPageView(
-    pageNumber - 1
-  );
+  const currentPage = PDFViewerApplication.pdfViewer.getPageView(pageNumber - 1);
 
-  PDFViewerApplication.pdfDocument
-    .getPage(pageNumber)
-    .then(page => {
-      const viewport = page.getViewport({ scale: currentPage.viewport.scale });
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
+  PDFViewerApplication.pdfDocument.getPage(pageNumber).then(page => {
+    const viewport = page.getViewport({ scale: currentPage.viewport.scale });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
 
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
 
-      canvas.style.position = "absolute";
-      canvas.style.top = "0";
-      canvas.style.left = "0";
-      canvas.style.pointerEvents = "none";
+    canvas.style.position = "absolute";
+    canvas.style.top = "0";
+    canvas.style.left = "0";
+    canvas.style.pointerEvents = "none";
 
-      const storedDimensions = JSON.parse(
-        localStorage.getItem("newDimensions")
-      );
-      const isResized = JSON.parse(localStorage.getItem("isResized"));
+    const storedDimensions = JSON.parse(localStorage.getItem("newDimensions"));
+    const isResized = JSON.parse(localStorage.getItem("isResized"));
 
-      let {
-        width: newWidth,
-        height: newHeight,
-        x: newX,
-        y: newY,
-      } = storedDimensions;
+    let { width: newWidth, height: newHeight, x: newX, y: newY } = storedDimensions;
 
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-      // Calculate the bounding box of the arrow
-      coordinates.forEach(point => {
-        const { moveToX, moveToY, x, y } = point;
-        minX = Math.min(minX, moveToX, x);
-        minY = Math.min(minY, moveToY, y);
-        maxX = Math.max(maxX, moveToX, x);
-        maxY = Math.max(maxY, moveToY, y);
-      });
-
-      const originalWidth = maxX - minX;
-      const originalHeight = maxY - minY;
-
-      coordinates.forEach(point => {
-        const { moveToX, moveToY, x, y, color, thickness } = point;
-
-        context.lineWidth = thickness;
-        context.strokeStyle = color;
-        context.lineCap = "round";
-
-        if (isResized) {
-          const widthScale = (newWidth * viewport.width) / originalWidth;
-          const heightScale = (newHeight * viewport.height) / originalHeight;
-
-          const adjustedMoveToX =
-            (moveToX - minX) * widthScale + newX * viewport.width;
-          const adjustedMoveToY =
-            (moveToY - minY) * heightScale + newY * viewport.height;
-          const adjustedX = (x - minX) * widthScale + newX * viewport.width;
-          const adjustedY = (y - minY) * heightScale + newY * viewport.height;
-
-          context.moveTo(adjustedMoveToX, adjustedMoveToY);
-          context.lineTo(adjustedX, adjustedY);
-        } else {
-          context.moveTo(moveToX, moveToY);
-          context.lineTo(x, y);
-        }
-      });
-
-      context.stroke();
-
-      const viewerElement = document.getElementsByClassName("page");
-      viewerElement[pageNumber - 1].prepend(canvas);
-      console.log("All arrows with adjusted rectangle drawn successfully.");
-    })
-    .catch(error => {
-      console.error("Error drawing arrows:", error);
+    // Calculate the bounding box of the arrow
+    coordinates.forEach(point => {
+      const { moveToX, moveToY, x, y } = point;
+      minX = Math.min(minX, moveToX, x);
+      minY = Math.min(minY, moveToY, y);
+      maxX = Math.max(maxX, moveToX, x);
+      maxY = Math.max(maxY, moveToY, y);
     });
+
+    const originalWidth = maxX - minX;
+    const originalHeight = maxY - minY;
+
+    coordinates.forEach(point => {
+      const { moveToX, moveToY, x, y, color, thickness } = point;
+
+      context.lineWidth = thickness;
+      context.strokeStyle = color;
+      context.lineCap = "round";
+
+      let adjustedMoveToX, adjustedMoveToY, adjustedX, adjustedY;
+
+      if (isResized) {
+        const widthScale = (newWidth * viewport.width) / originalWidth;
+        const heightScale = (newHeight * viewport.height) / originalHeight;
+
+        const offsetX = (thickness / 2) * widthScale;
+        const offsetY = (thickness / 2) * heightScale;
+
+        const adjustedMoveToXOriginal = (moveToX - minX) * widthScale + newX * viewport.width;
+        const adjustedMoveToYOriginal = (moveToY - minY) * heightScale + newY * viewport.height;
+        const adjustedXOriginal = (x - minX) * widthScale + newX * viewport.width;
+        const adjustedYOriginal = (y - minY) * heightScale + newY * viewport.height;
+
+        const lineLengthX = adjustedXOriginal - adjustedMoveToXOriginal;
+        const lineLengthY = adjustedYOriginal - adjustedMoveToYOriginal;
+        const length = Math.sqrt(lineLengthX ** 2 + lineLengthY ** 2);
+
+        const ratio = (length - thickness / 2) / length;
+
+        adjustedMoveToX = adjustedMoveToXOriginal + (lineLengthX * (1 - ratio)) / 2;
+        adjustedMoveToY = adjustedMoveToYOriginal + (lineLengthY * (1 - ratio)) / 2;
+        adjustedX = adjustedXOriginal - (lineLengthX * (1 - ratio)) / 2;
+        adjustedY = adjustedYOriginal - (lineLengthY * (1 - ratio)) / 2;
+
+        context.moveTo(adjustedMoveToX, adjustedMoveToY);
+        context.lineTo(adjustedX, adjustedY);
+      } else {
+        context.moveTo(moveToX, moveToY);
+        context.lineTo(x, y);
+      }
+    });
+
+    context.stroke();
+
+    const viewerElement = document.getElementsByClassName("page");
+    viewerElement[pageNumber - 1].prepend(canvas);
+    console.log("All arrows with adjusted rectangle drawn successfully.");
+  }).catch(error => {
+    console.error("Error drawing arrows:", error);
+  });
 }
+
+
 
 // const addNotesButton = () => {
 //   //alert("Button clicked");
@@ -469,11 +471,11 @@ function webViewerLoad() {
   }
   PDFViewerApplication.run(config);
   document
-    .getElementById("linebutton")
+    .getElementById("editorArrow")
     .addEventListener("click", applyArrowChanges);
-  document
-    .getElementById("highlightbutton")
-    .addEventListener("click", highlightText);
+  // document
+  //   .getElementById("highlightbutton")
+  //   .addEventListener("click", highlightText);
   // getViewerConfiguration().toolbar.editorFreeTextButton.addEventListener(
   //   "click",
   //   addNotesButton

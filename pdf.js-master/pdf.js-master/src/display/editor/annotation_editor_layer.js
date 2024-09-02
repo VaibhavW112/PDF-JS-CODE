@@ -656,7 +656,6 @@ class AnnotationEditorLayer {
    * @returns {AnnotationEditor}
    */
   createAndAddNewEditor(event, isCentered, data = {}) {
-     console.log(data);
     localStorage.setItem("highlightedPoints", JSON.stringify(data.boxes));
     const id = this.getNextId();
     const editor = this.#createNewEditor({

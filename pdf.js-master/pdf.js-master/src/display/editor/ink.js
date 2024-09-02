@@ -170,15 +170,21 @@ class InkEditor extends AnnotationEditor {
   }
 
   #updateStoredArrowThickness(thickness) {
+    this.#arrowDelta = [];
     let arrowDelta = JSON.parse(localStorage.getItem("arrowDelta"));
     if (arrowDelta) {
       arrowDelta.forEach(line => {
-        line.thickness = thickness;
-        arrowDelta.push(line);
+        this.#arrowDelta.push({
+          moveToX: line.moveToX,
+          moveToY: line.moveToY,
+          x: line.x,
+          y: line.y,
+          color: line.color,
+          thickness: (thickness * this.parentScale) / this.scaleFactor,
+        });
       });
     }
-
-    localStorage.setItem("arrowDelta", JSON.stringify(arrowDelta));
+    localStorage.setItem("arrowDelta", JSON.stringify(this.#arrowDelta));
   }
 
   /**
@@ -189,6 +195,7 @@ class InkEditor extends AnnotationEditor {
     this.#updateStoredArrowThickness(thickness);
     const setThickness = th => {
       this.thickness = th;
+      // debugger;
       this.#fitToContent();
     };
     const savedThickness = this.thickness;
@@ -204,15 +211,21 @@ class InkEditor extends AnnotationEditor {
   }
 
   #updateStoredArrowColor(color) {
+    this.#arrowDelta = [];
     let arrowDelta = JSON.parse(localStorage.getItem("arrowDelta"));
     if (arrowDelta) {
       arrowDelta.forEach(line => {
-        line.color = color;
-        arrowDelta.push(line);
+        this.#arrowDelta.push({
+          moveToX: line.moveToX,
+          moveToY: line.moveToY,
+          x: line.x,
+          y: line.y,
+          color: color,
+          thickness: line.thickness,
+        });
       });
     }
-
-    localStorage.setItem("arrowDelta", JSON.stringify(arrowDelta));
+    localStorage.setItem("arrowDelta", JSON.stringify(this.#arrowDelta));
   }
 
   /**
@@ -462,8 +475,9 @@ class InkEditor extends AnnotationEditor {
         x: x,
         y: y,
         color: this.color,
-        thickness: this.thickness * this.parentScale,
+        thickness: (this.thickness * this.parentScale) / this.scaleFactor,
       });
+
       this.#drawArrowhead(path2D, ...currentPath[0], x, y);
       return;
     }
@@ -520,14 +534,14 @@ class InkEditor extends AnnotationEditor {
       x: toX - headLength * Math.cos(angle + Math.PI / 6),
       y: toY - headLength * Math.sin(angle + Math.PI / 6),
       color: this.color,
-      thickness: this.thickness * this.parentScale,
+      thickness: (this.thickness * this.parentScale) / this.scaleFactor,
     });
 
     const [parentWidth, parentHeight] = this.parentDimensions;
     const padding = this.#getPadding();
     //TODO Revisit this code
-    //this.#arrowXPosition = (fromX - padding) / parentWidth;
-    //this.#arrowYPosition = (toY - padding) / parentHeight;
+    // this.#arrowXPosition = (fromX - padding) / parentWidth;
+    // this.#arrowYPosition = (toY - padding) / parentHeight;
 
     this.#arrowDelta.push({
       moveToX: toX,
@@ -535,7 +549,7 @@ class InkEditor extends AnnotationEditor {
       x: toX - headLength * Math.cos(angle - Math.PI / 6),
       y: toY - headLength * Math.sin(angle - Math.PI / 6),
       color: this.color,
-      thickness: this.thickness * this.parentScale,
+      thickness: (this.thickness * this.parentScale) / this.scaleFactor,
     });
 
     localStorage.setItem("arrowDelta", JSON.stringify(this.#arrowDelta));
@@ -685,6 +699,9 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
+  //TODO
+  //Commented this code because we dont want curve .just want straight line
+
   // #generateBezierPoints() {
   //   const path = this.currentPath;
   //   if (path.length <= 2) {
@@ -739,9 +756,7 @@ class InkEditor extends AnnotationEditor {
         [x1, y1],
       ]);
     }
-
     localStorage.setItem("linePoints", JSON.stringify(straightLinePoints));
-    console.log(straightLinePoints);
     return straightLinePoints;
   }
 

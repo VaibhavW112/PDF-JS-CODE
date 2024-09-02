@@ -465,7 +465,7 @@ class AnnotationEditor {
   }
 
   drag(tx, ty) {
-    //  console.log("In drag");
+    // console.log("In drag");
     this.#initialPosition ||= [this.x, this.y];
     const [parentWidth, parentHeight] = this.parentDimensions;
     this.x += tx / parentWidth;
@@ -509,6 +509,19 @@ class AnnotationEditor {
     this.div.style.left = `${(100 * x).toFixed(2)}%`;
     this.div.style.top = `${(100 * y).toFixed(2)}%`;
     this.div.scrollIntoView({ block: "nearest" });
+
+    localStorage.setItem(
+      "newDimensions",
+      JSON.stringify({
+        width: this.width,
+        height: this.height,
+        x: this.x,
+        y: this.y,
+      })
+    );
+    //TODO
+    //This code is added for the test purpose.
+    localStorage.setItem("isResized", JSON.parse(true));
   }
 
   get _hasBeenMoved() {
