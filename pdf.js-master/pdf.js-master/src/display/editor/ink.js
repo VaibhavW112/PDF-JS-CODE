@@ -119,8 +119,6 @@ class InkEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   updateParams(type, value) {
-    // console.log("In update params");
-    // console.log(type);
     switch (type) {
       case AnnotationEditorParamsType.INK_THICKNESS:
         this.#updateThickness(value);
@@ -181,6 +179,7 @@ class InkEditor extends AnnotationEditor {
           y: line.y,
           color: line.color,
           thickness: (thickness * this.parentScale) / this.scaleFactor,
+          pageIndex: this.pageIndex,
         });
       });
     }
@@ -195,7 +194,6 @@ class InkEditor extends AnnotationEditor {
     this.#updateStoredArrowThickness(thickness);
     const setThickness = th => {
       this.thickness = th;
-      // debugger;
       this.#fitToContent();
     };
     const savedThickness = this.thickness;
@@ -222,6 +220,7 @@ class InkEditor extends AnnotationEditor {
           y: line.y,
           color: color,
           thickness: line.thickness,
+          pageIndex: this.pageIndex,
         });
       });
     }
@@ -476,6 +475,7 @@ class InkEditor extends AnnotationEditor {
         y: y,
         color: this.color,
         thickness: (this.thickness * this.parentScale) / this.scaleFactor,
+        pageIndex: this.pageIndex,
       });
 
       this.#drawArrowhead(path2D, ...currentPath[0], x, y);
@@ -550,6 +550,7 @@ class InkEditor extends AnnotationEditor {
       y: toY - headLength * Math.sin(angle - Math.PI / 6),
       color: this.color,
       thickness: (this.thickness * this.parentScale) / this.scaleFactor,
+      pageIndex: this.pageIndex,
     });
 
     localStorage.setItem("arrowDelta", JSON.stringify(this.#arrowDelta));

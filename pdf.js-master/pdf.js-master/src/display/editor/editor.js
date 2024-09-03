@@ -471,17 +471,6 @@ class AnnotationEditor {
     this.x += tx / parentWidth;
     this.y += ty / parentHeight;
 
-    // console.log("tx");
-    // console.log(tx);
-
-    // console.log("ty");
-    // console.log(ty);
-
-    // console.log("this.x");
-    // console.log(this.x);
-
-    // console.log("this.y");
-    // console.log(this.y);
     if (this.parent && (this.x < 0 || this.x > 1 || this.y < 0 || this.y > 1)) {
       // It's possible to not have a parent: for example, when the user is
       // dragging all the selected editors but this one on a page which has been
@@ -511,16 +500,16 @@ class AnnotationEditor {
     this.div.scrollIntoView({ block: "nearest" });
 
     localStorage.setItem(
-      "newDimensions",
+      "resizedArrowDelta",
       JSON.stringify({
         width: this.width,
         height: this.height,
         x: this.x,
         y: this.y,
+        pageIndex: this.pageIndex,
       })
     );
-    //TODO
-    //This code is added for the test purpose.
+
     localStorage.setItem("isResized", JSON.parse(true));
   }
 
@@ -869,10 +858,6 @@ class AnnotationEditor {
     const savedY = this.y;
     const savedWidth = this.width;
     const savedHeight = this.height;
-    // console.log("saved x ==>" + savedX);
-    // console.log("savedY ==>" + savedY);
-    // console.log("savedWidth ==>" + savedWidth);
-    // console.log("savedHeight ==>" + savedHeight);
     const minWidth = AnnotationEditor.MIN_SIZE / parentWidth;
     const minHeight = AnnotationEditor.MIN_SIZE / parentHeight;
 
@@ -993,12 +978,13 @@ class AnnotationEditor {
     this.y = newY;
 
     localStorage.setItem(
-      "newDimensions",
+      "resizedArrowDelta",
       JSON.stringify({
         width: this.width,
         height: this.height,
         x: this.x,
         y: this.y,
+        pageIndex: this.pageIndex,
       })
     );
 
